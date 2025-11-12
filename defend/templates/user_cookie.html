@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h1>Профиль пользователя</h1>
+    <p id="username"></p>
+
+    <h2>Список фильмов</h2>
+    <table id="moviesTable">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Название</th>
+            <th>Стоимость</th>
+            <th>Режиссёр</th>
+        </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <form id="addFilmForm">
+        <input id="filmName" type="text" name="film" placeholder="введите название фильма">
+        <input id="filmCost" type="text" name="film" placeholder="введите стоимость фильма">
+        <input id="filmDirector"  type="text" name="film" placeholder="введите режисера">
+        <button id="addFilmBtn">Добавить фильм</button>
+    </form>
+
+
+    <script src="./user_cookie.js"></script>
+</body>
+</html>

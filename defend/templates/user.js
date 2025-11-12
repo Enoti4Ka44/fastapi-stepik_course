@@ -64,6 +64,7 @@ const handleAddFilm = async (e) => {
             cost: filmCost,
             director: filmDirector
         }),
+        credentials: "include"
     });
 
     if (response.ok) {
