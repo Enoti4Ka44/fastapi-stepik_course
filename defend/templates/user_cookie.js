@@ -5,7 +5,7 @@ const filmDirectorNode = document.querySelector('#filmDirector');
 
 async function loadUser() {
     const response = await fetch("/user_data_cookie", { 
-        credentials: "include" // обязательно, чтобы cookie передавались
+        credentials: "include" 
     });
 
     if (response.ok) {
@@ -15,7 +15,7 @@ async function loadUser() {
         document.getElementById("sessionExpires").textContent = `Session expires: ${data.session_expires}`;
 
         const tbody = document.getElementById("moviesTable").querySelector("tbody");
-        tbody.innerHTML = ""; // очищаем таблицу перед заполнением
+        tbody.innerHTML = "";
         data.movies.forEach(movie => {
             const tr = document.createElement("tr");
             tr.innerHTML = `
@@ -47,7 +47,7 @@ const handleAddFilm = async (e) => {
             cost: filmCost,
             director: filmDirector
         }),
-        credentials: "include" // обязательно для cookie
+        credentials: "include" 
     });
 
     if (response.ok) {

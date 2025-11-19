@@ -6,12 +6,13 @@ from datetime import datetime, timedelta
 import jwt
 import time
 import uuid
+import json
 
 app = FastAPI()
 
 SECRET_KEY = "supersecretkey"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 2  
+ACCESS_TOKEN_EXPIRE_MINUTES = 5
 
 movies = [
     Movietop(id=i, name=f"Фильм{i}", cost=100000, director="Тим Бертон")
@@ -23,12 +24,9 @@ users = {
 }
 
 security = HTTPBearer()
-sessions = {}  # хранение активных cookie-сессий
+sessions = {}
 
-# ==========================================================
-# TOKEN-BASED АУТЕНТИФИКАЦИЯ
-# ==========================================================
-
+# jwt
 def create_jwt(username: str):
     payload = {"username": username, "exp": time.time() + ACCESS_TOKEN_EXPIRE_MINUTES * 60}
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
@@ -62,9 +60,7 @@ async def login(data: UserData):
     raise HTTPException(status_code=401, detail="Неверное имя пользователя или пароль")
 
 
-# ==========================================================
-# COOKIE-BASED АУТЕНТИФИКАЦИЯ
-# ==========================================================
+# Cookie
 
 @app.get("/login_cookie", response_class=HTMLResponse)
 def login_cookie_page():
@@ -89,12 +85,12 @@ async def login_cookie(data: UserData, response: Response):
             "login_time": datetime.now()
         }
 
-        # Устанавливаем куки
+
         response.set_cookie(
             key="session_token",
             value=session_token,
             httponly=True,
-            secure=False,  # можно True, если https
+            secure=False,
             max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60
         )
 
@@ -102,10 +98,7 @@ async def login_cookie(data: UserData, response: Response):
     raise HTTPException(status_code=401, detail="Неверное имя пользователя или пароль")
 
 
-# ==========================================================
-# USER PAGE (общая, и для токенов, и для куки)
-# ==========================================================
-
+#  user
 @app.get("/user", response_class=HTMLResponse)
 def user_page():
     return FileResponse("defend/templates/user.html")
@@ -123,10 +116,7 @@ def user_cookie_js():
     return FileResponse("defend/templates/user_cookie.js")
 
 
-# ==========================================================
-# USER DATA через JWT
-# ==========================================================
-
+# user data jwt
 @app.get("/user_data")
 async def user_info(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
@@ -137,10 +127,7 @@ async def user_info(credentials: HTTPAuthorizationCredentials = Depends(security
     }
 
 
-# ==========================================================
-# USER DATA через COOKIE
-# ==========================================================
-
+# user data cookie
 @app.get("/user_data_cookie")
 async def user_info_cookie(request: Request):
     session_token = request.cookies.get("session_token")
@@ -150,12 +137,10 @@ async def user_info_cookie(request: Request):
 
     session_data = sessions[session_token]
 
-    # Проверяем срок действия
     if datetime.now() > session_data["expires"]:
         del sessions[session_token]
         return JSONResponse(status_code=401, content={"message": "Session expired"})
 
-    # Обновляем срок действия (продлеваем на 2 минуты)
     session_data["expires"] = datetime.now() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
     return {
@@ -166,10 +151,7 @@ async def user_info_cookie(request: Request):
     }
 
 
-# ==========================================================
-# ДРУГИЕ ЭНДПОЙНТЫ
-# ==========================================================
-
+# movies
 @app.get('/')
 def root():
     return FileResponse("defend/index.html")
@@ -205,7 +187,7 @@ async def add_film_cookie(movie: Movietop, request: Request):
         del sessions[session_token]
         return JSONResponse(status_code=401, content={"detail": "Сессия истекла, войдите снова"})
 
-    # создаём id фильма
+
     if movie.id is None:
         movie.id = max([m.id for m in movies], default=0) + 1
 
