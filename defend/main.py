@@ -12,7 +12,7 @@ app = FastAPI()
 
 SECRET_KEY = "supersecretkey"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 5
+ACCESS_TOKEN_EXPIRE_MINUTES = 2
 
 movies = [
     Movietop(id=i, name=f"Фильм{i}", cost=100000, director="Тим Бертон")
@@ -72,29 +72,45 @@ def login_cookie_js():
 
 
 @app.post("/login_cookie")
-async def login_cookie(data: UserData, response: Response):
+async def login_cookie(data: UserData, response: Response, request: Request):
     username = data.username
     password = data.password
 
     if username in users and users[username] == password:
         session_token = str(uuid.uuid4())
-        expire_time = datetime.now() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        now = datetime.now()
+        expire_time = now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+
         sessions[session_token] = {
             "username": username,
             "expires": expire_time,
-            "login_time": datetime.now()
+            "login_time": now
         }
 
+        raw_cookie = request.cookies.get("session_tokens")
+        if raw_cookie:
+            try:
+                tokens_list = json.loads(raw_cookie)
+            except:
+                tokens_list = []
+        else:
+            tokens_list = []
+
+        tokens_list.append({
+            "token": session_token,
+            "time": now.strftime("%Y-%m-%d %H:%M:%S")
+        })
 
         response.set_cookie(
-            key="session_token",
-            value=session_token,
+            key="session_tokens",
+            value=json.dumps(tokens_list),
             httponly=True,
             secure=False,
             max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60
         )
 
         return {"message": "Вход выполнен успешно"}
+
     raise HTTPException(status_code=401, detail="Неверное имя пользователя или пароль")
 
 
@@ -130,10 +146,24 @@ async def user_info(credentials: HTTPAuthorizationCredentials = Depends(security
 # user data cookie
 @app.get("/user_data_cookie")
 async def user_info_cookie(request: Request):
-    session_token = request.cookies.get("session_token")
 
-    if not session_token or session_token not in sessions:
+    raw_cookie = request.cookies.get("session_tokens")
+    if not raw_cookie:
         return JSONResponse(status_code=401, content={"message": "Unauthorized"})
+
+    try:
+        tokens_list = json.loads(raw_cookie)
+    except:
+        return JSONResponse(status_code=401, content={"message": "Bad cookie format"})
+
+    if not tokens_list:
+        return JSONResponse(status_code=401, content={"message": "Empty cookie"})
+
+    last_entry = tokens_list[-1]
+    session_token = last_entry["token"]
+
+    if session_token not in sessions:
+        return JSONResponse(status_code=401, content={"message": "Session not found"})
 
     session_data = sessions[session_token]
 
@@ -141,12 +171,10 @@ async def user_info_cookie(request: Request):
         del sessions[session_token]
         return JSONResponse(status_code=401, content={"message": "Session expired"})
 
-    session_data["expires"] = datetime.now() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-
     return {
         "username": session_data["username"],
-        "login_time": session_data["login_time"].strftime("%Y-%m-%d %H:%M:%S"),
-        "session_expires": session_data["expires"].strftime("%Y-%m-%d %H:%M:%S"),
+        "current_session": session_data["login_time"].strftime("%Y-%m-%d %H:%M:%S"),
+        "all_logins": tokens_list, 
         "movies": [m.model_dump() for m in movies]
     }
 
@@ -174,19 +202,35 @@ async def add_film(movie: Movietop, credentials: HTTPAuthorizationCredentials = 
     movies.append(movie)
     return {"message": f"Фильм '{movie.name}' добавлен пользователем {payload['username']}"}
 
+
+
 @app.post("/add_film_cookie")
 async def add_film_cookie(movie: Movietop, request: Request):
-    session_token = request.cookies.get("session_token")
 
-    if not session_token or session_token not in sessions:
+    raw_cookie = request.cookies.get("session_tokens")
+    if not raw_cookie:
         return JSONResponse(status_code=401, content={"detail": "Пожалуйста, войдите в аккаунт"})
+
+    try:
+        tokens_list = json.loads(raw_cookie)
+    except:
+        return JSONResponse(status_code=401, content={"detail": "Ошибка cookie"})
+
+    if not tokens_list:
+        return JSONResponse(status_code=401, content={"detail": "Пустой cookie"})
+
+
+    last_entry = tokens_list[-1]
+    session_token = last_entry["token"]
+
+    if session_token not in sessions:
+        return JSONResponse(status_code=401, content={"detail": "Сессия не найдена"})
 
     session_data = sessions[session_token]
 
     if datetime.now() > session_data["expires"]:
         del sessions[session_token]
-        return JSONResponse(status_code=401, content={"detail": "Сессия истекла, войдите снова"})
-
+        return JSONResponse(status_code=401, content={"detail": "Сессия истекла"})
 
     if movie.id is None:
         movie.id = max([m.id for m in movies], default=0) + 1

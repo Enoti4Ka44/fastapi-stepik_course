@@ -40,15 +40,18 @@ const handleAddFilm = async (e) => {
     const filmDirector = filmDirectorNode.value;
 
     const response = await fetch("/add_film_cookie", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            name: filmName,
-            cost: filmCost,
-            director: filmDirector
-        }),
-        credentials: "include" 
-    });
+    method: "POST",
+    headers: { 
+        "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+        name: filmName,
+        cost: filmCost,
+        director: filmDirector
+    }),
+    credentials: "include"   
+});
+
 
     if (response.ok) {
         const data = await response.json();
